@@ -52,8 +52,11 @@ This section contains full details on advanced features available in KeePassXC.
 NOTE: You can insert literal placeholder strings by escaping the beginning and ending curly braces. For example, to insert the string `{USERNAME}`, you would type `++\{USERNAME\}++`.
 
 === Entry Cross-Reference
-A reference to another entry's field is possible using the shorthand syntax:
+A reference to another entry's standard field is possible using the shorthand syntax:
 `{REF:&lt;FIELD&gt;@&lt;SEARCH_IN&gt;:&lt;SEARCH_TEXT&gt;}`
+
+A custom attribute can be returned by name using:
+`{REF:O:&lt;ATTRIBUTE_NAME&gt;@&lt;SEARCH_IN&gt;:&lt;SEARCH_TEXT&gt;}`
 
 `&lt;FIELD&gt;` and `&lt;SEARCH_IN&gt;` can be one of following:
 
@@ -63,12 +66,20 @@ A reference to another entry's field is possible using the shorthand syntax:
 * A – URL
 * N – Notes
 * I – UUID (found on entry properties page)
-* O – Custom Attribute _(SEARCH_IN only)_
+* O – Custom Attribute _(SEARCH_IN, or FIELD when followed by `:&lt;ATTRIBUTE_NAME&gt;`)_
+
+Custom attribute names are case-sensitive. Colons are allowed in attribute names. If an attribute name contains `@`,
+escape it as `\@`; a literal backslash can be escaped as `\\`.
 
 Examples: +
 `{REF:U@I:033054D445C648C59092CC1D661B1B71}` +
+`{REF:O:Email@I:033054D445C648C59092CC1D661B1B71}` +
+`{REF:O:Attribute\@Name@I:033054D445C648C59092CC1D661B1B71}` +
 `{REF:P@T:Other Entry}` +
 `{REF:A@O:Attribute 1}`
+
+NOTE: Returning custom attributes with `O:&lt;ATTRIBUTE_NAME&gt;` is a KeePassXC extension and may not resolve in
+other KeePass-compatible applications.
 
 === Auto-Type Actions
 [grid=rows, frame=none, width=90%]

@@ -25,6 +25,20 @@ namespace EntryPlaceholders
 {
     const int ResolveMaximumDepth = 10;
 
+    struct Reference
+    {
+        QString wantedField;
+        QString wantedAttribute;
+        QString searchIn;
+        QString searchText;
+
+        bool isValid() const
+        {
+            return (!wantedField.isEmpty() || !wantedAttribute.isEmpty()) && !searchIn.isEmpty()
+                   && !searchText.isEmpty();
+        }
+    };
+
     enum class PlaceholderType
     {
         NotPlaceholder,
@@ -72,7 +86,7 @@ namespace EntryPlaceholders
     QString resolveDateTimePlaceholder(PlaceholderType placeholderType);
     QString maskPasswordPlaceholders(const QString& str);
     QRegularExpressionMatchIterator placeholderMatches(const QString& str);
-    QRegularExpressionMatch matchReference(const QString& text);
+    Reference parseReference(const QString& text);
     bool containsPlaceholder(const QString& str);
 } // namespace EntryPlaceholders
 

@@ -186,14 +186,95 @@ namespace EntryPlaceholders
         return placeholderRegEx.globalMatch(str);
     }
 
-    QRegularExpressionMatch matchReference(const QString& text)
+    Reference parseReference(const QString& text)
     {
-        // Updated regex to handle nested braces in SearchText (e.g., {UUID})
-        static const QRegularExpression referenceRegExp(
-            R"(\{REF:(?<WantedField>[TUPANI])@(?<SearchIn>[TUPANIO]):(?<SearchText>(?:[^{}]|\{[^}]*\})+)\})",
-            QRegularExpression::CaseInsensitiveOption);
+        Reference reference;
 
-        return referenceRegExp.match(text);
+        const qsizetype referenceStart = text.indexOf(QStringLiteral("{REF:"), 0, Qt::CaseInsensitive);
+        if (referenceStart < 0) {
+            return reference;
+        }
+
+        // Locate the matching closing brace so references embedded in larger strings keep working.
+        qsizetype depth = 0;
+        qsizetype referenceEnd = -1;
+        for (qsizetype i = referenceStart; i < text.size(); ++i) {
+            if (text[i] == QLatin1Char('{')) {
+                ++depth;
+            } else if (text[i] == QLatin1Char('}')) {
+                --depth;
+                if (depth == 0) {
+                    referenceEnd = i;
+                    break;
+                }
+            }
+        }
+
+        if (referenceEnd < 0) {
+            return reference;
+        }
+
+        const QString referenceText = text.mid(referenceStart, referenceEnd - referenceStart + 1);
+        // Strip "{REF:" and the final "}". SearchText may still contain nested placeholders such as {UUID}.
+        const QString body = referenceText.mid(5, referenceText.size() - 6);
+        const auto isSearchField = [](QChar field) {
+            return QStringLiteral("TUPANIO").contains(field.toUpper());
+        };
+
+        if (body.size() >= 3 && body[0].toUpper() == QLatin1Char('O') && body[1] == QLatin1Char(':')) {
+            // KeePassXC extension: {REF:O:<ATTRIBUTE_NAME>@<SEARCH_IN>:<SEARCH_TEXT>}
+            // An '@' in the attribute name can be escaped as '\@'. A literal backslash is escaped as '\\'.
+            qsizetype delimiter = -1;
+            for (qsizetype i = 2; i + 2 < body.size(); ++i) {
+                if (body[i] == QLatin1Char('\\') && i + 1 < body.size()
+                    && (body[i + 1] == QLatin1Char('@') || body[i + 1] == QLatin1Char('\\'))) {
+                    ++i;
+                    continue;
+                }
+
+                if (body[i] == QLatin1Char('@') && isSearchField(body[i + 1])
+                    && body[i + 2] == QLatin1Char(':')) {
+                    delimiter = i;
+                    break;
+                }
+            }
+
+            if (delimiter < 0) {
+                return {};
+            }
+
+            const QString rawAttribute = body.mid(2, delimiter - 2);
+            if (rawAttribute.isEmpty()) {
+                return {};
+            }
+
+            QString attribute;
+            attribute.reserve(rawAttribute.size());
+            for (qsizetype i = 0; i < rawAttribute.size(); ++i) {
+                if (rawAttribute[i] == QLatin1Char('\\') && i + 1 < rawAttribute.size()
+                    && (rawAttribute[i + 1] == QLatin1Char('@') || rawAttribute[i + 1] == QLatin1Char('\\'))) {
+                    attribute += rawAttribute[++i];
+                } else {
+                    attribute += rawAttribute[i];
+                }
+            }
+
+            reference.wantedAttribute = attribute;
+            reference.searchIn = body.mid(delimiter + 1, 1);
+            reference.searchText = body.mid(delimiter + 3);
+        } else {
+            // KeePass-compatible syntax: {REF:<FIELD>@<SEARCH_IN>:<SEARCH_TEXT>}
+            if (body.size() < 5 || !QStringLiteral("TUPANI").contains(body[0].toUpper())
+                || body[1] != QLatin1Char('@') || !isSearchField(body[2]) || body[3] != QLatin1Char(':')) {
+                return {};
+            }
+
+            reference.wantedField = body.left(1);
+            reference.searchIn = body.mid(2, 1);
+            reference.searchText = body.mid(4);
+        }
+
+        return reference.isValid() ? reference : Reference{};
     }
 
     bool containsPlaceholder(const QString& str)
@@ -218,7 +299,7 @@ namespace EntryPlaceholders
             }
 
             // Check for references. Deeply nested reference placeholders might return an Unknown type.
-            if (matchReference(captured).hasMatch()) {
+            if (parseReference(captured).isValid()) {
                 return true;
             }
         }

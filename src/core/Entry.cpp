@@ -396,7 +396,7 @@ QString Entry::resolveUrl() const
         return {};
     }
 
-    return EntryPlaceholders::matchReference(entryUrl).hasMatch() ? resolveMultiplePlaceholders(entryUrl) : entryUrl;
+    return EntryPlaceholders::parseReference(entryUrl).isValid() ? resolveMultiplePlaceholders(entryUrl) : entryUrl;
 }
 
 QStringList Entry::getAllUrls() const
@@ -1329,29 +1329,28 @@ QString Entry::resolveReferencePlaceholderRecursive(const QString& placeholder, 
     // resolving references in format: {REF:<WantedField>@<SearchIn>:<SearchText>}
     // using format from http://keepass.info/help/base/fieldrefs.html at the time of writing
 
-    const QRegularExpressionMatch match = EntryPlaceholders::matchReference(placeholder);
-    if (!match.hasMatch() || !m_group || !m_group->database()) {
+    const auto reference = EntryPlaceholders::parseReference(placeholder);
+    if (!reference.isValid() || !m_group || !m_group->database()) {
         return placeholder;
     }
 
     QString result;
-    const QString searchIn = match.captured(EntryAttributes::SearchInGroupName);
-    QString searchText = match.captured(EntryAttributes::SearchTextGroupName);
+    QString searchText = reference.searchText;
 
     // Resolve placeholders in the search text (e.g., {UUID} -> actual UUID)
     searchText = resolvePlaceholder(searchText);
 
-    const EntryReferenceType searchInType = Entry::referenceType(searchIn);
+    const EntryReferenceType searchInType = Entry::referenceType(reference.searchIn);
 
     const Entry* refEntry = m_group->database()->rootGroup()->findEntryBySearchTerm(searchText, searchInType);
 
     if (refEntry) {
-        const QString wantedField = match.captured(EntryAttributes::WantedFieldGroupName);
-        result = refEntry->referenceFieldValue(Entry::referenceType(wantedField));
+        if (!reference.wantedAttribute.isEmpty()) {
+            result = refEntry->attributes()->value(reference.wantedAttribute);
+        } else {
+            result = refEntry->referenceFieldValue(Entry::referenceType(reference.wantedField));
+        }
 
-        // Referencing fields of other entries only works with standard fields, not with custom user strings.
-        // If you want to reference a custom user string, you need to place a redirection in a standard field
-        // of the entry with the custom string, using {S:<Name>}, and reference the standard field.
         result = refEntry->resolveMultiplePlaceholdersRecursive(result, maxDepth);
     }
 
@@ -1461,16 +1460,13 @@ Database* Entry::database()
 
 Entry* Entry::resolveReference(const QString& str) const
 {
-    QRegularExpressionMatch match = EntryPlaceholders::matchReference(str);
-    if (!match.hasMatch()) {
+    const auto reference = EntryPlaceholders::parseReference(str);
+    if (!reference.isValid()) {
         return nullptr;
     }
 
-    const QString searchIn = match.captured(EntryAttributes::SearchInGroupName);
-    const QString searchText = match.captured(EntryAttributes::SearchTextGroupName);
-
-    const EntryReferenceType searchInType = Entry::referenceType(searchIn);
-    return m_group->database()->rootGroup()->findEntryBySearchTerm(searchText, searchInType);
+    const EntryReferenceType searchInType = Entry::referenceType(reference.searchIn);
+    return m_group->database()->rootGroup()->findEntryBySearchTerm(reference.searchText, searchInType);
 }
 
 QString Entry::resolveMultiplePlaceholders(const QString& str) const

@@ -368,6 +368,10 @@ void TestEntry::testResolveReferencePlaceholders()
     entry1->setUrl("Url1");
     entry1->setNotes("Notes1");
     entry1->attributes()->set("CustomAttribute1", "CustomAttributeValue1");
+    entry1->attributes()->set("Email", "max@example.com");
+    entry1->attributes()->set("EmailAlias", "{S:Email}");
+    entry1->attributes()->set("Attribute:With:Colon", "ColonValue");
+    entry1->attributes()->set("Attribute@I:WithDelimiter", "EscapedAtValue");
 
     auto* group = new Group();
     group->setParent(root);
@@ -398,6 +402,21 @@ void TestEntry::testResolveReferencePlaceholders()
     auto* tstEntry = new Entry();
     tstEntry->setGroup(root);
     tstEntry->setUuid(QUuid::createUuid());
+
+    // Custom attributes can be returned directly from referenced entries.
+    QCOMPARE(tstEntry->resolveMultiplePlaceholders(QString("{REF:O:Email@I:%1}").arg(entry1->uuidToHex())),
+             QString("max@example.com"));
+    QCOMPARE(tstEntry->resolveMultiplePlaceholders(QString("{REF:O:EmailAlias@I:%1}").arg(entry1->uuidToHex())),
+             QString("max@example.com"));
+    QCOMPARE(
+        tstEntry->resolveMultiplePlaceholders(QString("{REF:O:Attribute:With:Colon@I:%1}").arg(entry1->uuidToHex())),
+        QString("ColonValue"));
+    QCOMPARE(tstEntry->resolveMultiplePlaceholders(
+                 QString("{REF:O:Attribute\\@I:WithDelimiter@I:%1}").arg(entry1->uuidToHex())),
+             QString("EscapedAtValue"));
+    QCOMPARE(tstEntry->resolveMultiplePlaceholders(QString("{REF:O:email@I:%1}").arg(entry1->uuidToHex())), QString());
+    QCOMPARE(tstEntry->resolveMultiplePlaceholders(QString("{REF:O:DoesNotExist@I:%1}").arg(entry1->uuidToHex())),
+             QString());
 
     QCOMPARE(tstEntry->resolveMultiplePlaceholders(QString("{REF:T@I:%1}").arg(entry1->uuidToHex())), entry1->title());
     QCOMPARE(tstEntry->resolveMultiplePlaceholders(QString("{REF:T@T:%1}").arg(entry1->title())), entry1->title());

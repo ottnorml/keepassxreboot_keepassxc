@@ -145,7 +145,7 @@ bool EntryAttributes::isReference(const QString& key) const
     }
 
     const QString data = value(key);
-    return EntryPlaceholders::matchReference(data).hasMatch();
+    return EntryPlaceholders::parseReference(data).isValid();
 }
 
 void EntryAttributes::set(const QString& key, const QString& value, bool protect)
@@ -307,12 +307,9 @@ QUuid EntryAttributes::referenceUuid(const QString& key) const
         return {};
     }
 
-    auto match = EntryPlaceholders::matchReference(value(key));
-    if (match.hasMatch()) {
-        const QString uuid = match.captured("SearchText");
-        if (!uuid.isEmpty()) {
-            return QUuid::fromRfc4122(QByteArray::fromHex(uuid.toLatin1()));
-        }
+    const auto reference = EntryPlaceholders::parseReference(value(key));
+    if (reference.isValid() && !reference.searchText.isEmpty()) {
+        return QUuid::fromRfc4122(QByteArray::fromHex(reference.searchText.toLatin1()));
     }
 
     return {};

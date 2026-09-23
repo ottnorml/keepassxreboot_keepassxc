@@ -159,7 +159,7 @@ namespace FdoSecrets
                 return QDBusError::InvalidArgs;
             }
 
-            if (EntryPlaceholders::matchReference(it.value()).hasMatch()) {
+            if (EntryPlaceholders::parseReference(it.value()).isValid()) {
                 return QDBusError::InvalidArgs;
             }
 
@@ -198,7 +198,7 @@ namespace FdoSecrets
             return ret;
         }
 
-        if (EntryPlaceholders::matchReference(label).hasMatch()) {
+        if (EntryPlaceholders::parseReference(label).isValid()) {
             return QDBusError::InvalidArgs;
         }
 
@@ -309,7 +309,7 @@ namespace FdoSecrets
         auto decoded = secret.session->decode(secret);
 
         // block references
-        if (EntryPlaceholders::matchReference(decoded.value).hasMatch()) {
+        if (EntryPlaceholders::parseReference(decoded.value).isValid()) {
             return QDBusError::InvalidArgs;
         }
 
@@ -431,7 +431,7 @@ namespace FdoSecrets
         }
 
         if (!mimeType.isValid() || !mimeType.inherits(QStringLiteral("text/plain"))) {
-            if (EntryPlaceholders::matchReference(contentType).hasMatch()) {
+            if (EntryPlaceholders::parseReference(contentType).isValid()) {
                 return QDBusError::InvalidArgs;
             }
             // we can't handle this content type, save the data as attachment, and clear the password field
@@ -440,7 +440,7 @@ namespace FdoSecrets
             entry->attributes()->set(FDO_SECRETS_CONTENT_TYPE, contentType);
         } else {
             auto password = decoder.decode(data);
-            if (EntryPlaceholders::matchReference(password).hasMatch()) {
+            if (EntryPlaceholders::parseReference(password).isValid()) {
                 return QDBusError::InvalidArgs;
             }
             // save the data to password field
